@@ -1,0 +1,137 @@
+"# Source code" 
+## Data Understanding
+
+This dataset contains ECG (Electrocardiogram) signal features derived from heartbeats, each labeled as a specific cardiac condition.  
+The goal is to build a machine learning model that classifies ECG signals into **Normal**, **Mild Abnormality**, or **Severe Abnormality** categories for early cardiac diagnosis.
+
+
+# Basic setup
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Display settings
+pd.set_option('display.max_columns', 50)
+
+# Load the ECG dataset
+df = pd.read_csv(r"D:\ML_Projects\ECG_Minor\data\ecg_data.csv")
+
+print("Shape of dataset:", df.shape)
+df.head()
+
+#### 1.1 Exploratory Overview
+
+We check datatypes, summary statistics, and class distribution to understand the structure of the ECG dataset.  
+This helps identify missing values, imbalance, and any formatting issues before preprocessing.
+
+
+# Display information about the dataset
+df.info()
+
+# Summary statistics
+df.describe()
+
+# Count of missing values
+df.isnull().sum()
+
+# Distribution of target labels
+print("\nLabel distribution:")
+print(df['label'].value_counts())
+
+
+**Observation:**  
+We can see the dataset is imbalanced — the 'Normal' class dominates, which can bias the model.  
+This imbalance must be corrected before training (using resampling or class weighting).
+
+
+plt.figure(figsize=(8,4))
+sns.countplot(data=df, x='label', hue='label', legend=False,
+              order=df['label'].value_counts().index, palette="viridis")
+plt.title("Distribution of ECG Labels")
+plt.xticks(rotation=45)
+plt.show()
+
+### 1.2 Feature Relationships
+Correlations help us understand which ECG-derived features are related to each other.  
+Highly correlated features may carry redundant information.
+
+
+# Select only numeric columns for correlation
+numeric_df = df.select_dtypes(include=['number'])
+
+plt.figure(figsize=(10,8))
+sns.heatmap(numeric_df.corr(), cmap='coolwarm', center=0)
+plt.title("Feature Correlation Matrix (Numeric Features Only)")
+plt.show()
+
+
+
+## 2. Data Preprocessing and Balancing
+We prepare the ECG dataset for modeling by handling missing values, encoding categorical labels, 
+and balancing class distribution to avoid model bias.
+
+
+# Check again for missing values
+missing = df.isnull().sum()
+missing = missing[missing > 0]
+missing
+df = df.fillna(df.median(numeric_only=True))
+
+
+# Label Encoding
+# We’ll convert textual labels (label, maybe class) into numeric codes.
+
+from sklearn.preprocessing import LabelEncoder
+
+if 'label' in df.columns:
+    le = LabelEncoder()
+    df['label_encoded'] = le.fit_transform(df['label'])
+    print("Encoded labels:", dict(zip(le.classes_, le.transform(le.classes_))))
+else:
+    print("'label' column not found — check column names")
+
+#Check class imbalance
+
+plt.figure(figsize=(6,3))
+sns.countplot(x='label_encoded', hue='label_encoded', data=df, legend=False, palette='crest')
+plt.title("Encoded Label Distribution (Before Balancing)")
+plt.show()
+
+#Balance the Dataset
+
+from sklearn.utils import resample
+
+# Combine features + label for balancing
+balanced_df = pd.DataFrame()
+
+# Count each class
+class_counts = df['label_encoded'].value_counts()
+target_samples = class_counts.min()
+
+for class_id in class_counts.index:
+    subset = df[df['label_encoded'] == class_id]
+    if len(subset) > target_samples:
+        # Downsample majority
+        subset = resample(subset, replace=False, n_samples=target_samples, random_state=42)
+    else:
+        # Upsample minority
+        subset = resample(subset, replace=True, n_samples=target_samples, random_state=42)
+    balanced_df = pd.concat([balanced_df, subset])
+
+print("New class distribution:\n", balanced_df['label_encoded'].value_counts())
+
+##### *We resampled *each class* to match the minority class size, ensuring a balanced dataset that prevents bias toward normal signals.*
+
+balanced_df.to_csv(r"D:\ML_Projects\ECG_Minor\data\ecg_data.csv", index=False)
+print("✅ Balanced dataset saved successfully.")
+
+
+#### 4.3 Confusion Matrix Interpretation
+
+Each cell shows how many samples from one class were predicted as another.
+- Diagonal cells = correct predictions.
+- Off-diagonal cells = misclassifications.
+
+This helps identify which ECG categories are harder to distinguish.
+
