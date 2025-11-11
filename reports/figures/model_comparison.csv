@@ -1,0 +1,4 @@
+Model,Accuracy,Precision,Recall,F1
+DecisionTree,1.0,1.0,1.0,1.0
+XGBoost,1.0,1.0,1.0,1.0
+RandomForest,0.995,0.9951,0.995,0.995
